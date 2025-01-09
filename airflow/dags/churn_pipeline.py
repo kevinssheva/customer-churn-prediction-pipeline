@@ -1,12 +1,22 @@
 from airflow import DAG
 from airflow.operators.dummy import DummyOperator
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
+import subprocess
 
-from utils import run_spark_script, run_mlflow_script
+
+def run_mlflow_script(script_path):
+    """Runs an MLflow script."""
+    try:
+        subprocess.check_call(['python', script_path])
+    except subprocess.CalledProcessError as e:
+        raise RuntimeError(
+            f"Failed to run MLflow script: {script_path}. Error: {e}")
+
 
 default_args = {
-    'owner': 'mlops',
+    'owner': 'airflow',
     'depends_on_past': False,
     'email_on_failure': False,
     'retries': 2,
@@ -14,7 +24,7 @@ default_args = {
 }
 
 with DAG(
-    'churn_prediction_pipeline',
+    dag_id='churn_prediction_pipeline',
     default_args=default_args,
     description='End-to-end churn prediction pipeline',
     schedule_interval='@weekly',
@@ -23,28 +33,40 @@ with DAG(
 ) as dag:
     start = DummyOperator(task_id='start')
 
-    data_preprocessing = PythonOperator(
+    data_preprocessing = SparkSubmitOperator(
         task_id='data_preprocessing',
-        python_callable=run_spark_script,
-        op_args=['spark/apps/data_preprocessing.py']
+        application='/opt/spark-apps/data_preprocessing.py',
+        conn_id='spark_default',  # Airflow connection ID for Spark
+        name='data_preprocessing',
+        application_args=[],
+        verbose=True
     )
 
-    feature_engineering = PythonOperator(
+    feature_engineering = SparkSubmitOperator(
         task_id='feature_engineering',
-        python_callable=run_spark_script,
-        op_args=['spark/apps/feature_engineering.py']
+        application='/opt/spark-apps/feature_engineering.py',
+        conn_id='spark_default',
+        name='feature_engineering',
+        application_args=[],
+        verbose=True
     )
 
-    train_model = PythonOperator(
+    train_model = SparkSubmitOperator(
         task_id='train_model',
-        python_callable=run_spark_script,
-        op_args=['spark/apps/train_model.py']
+        application='/opt/spark-apps/train_model.py',
+        conn_id='spark_default',
+        name='train_model',
+        application_args=[],
+        verbose=True
     )
 
-    evaluate_model = PythonOperator(
+    evaluate_model = SparkSubmitOperator(
         task_id='evaluate_model',
-        python_callable=run_spark_script,
-        op_args=['spark/apps/evaluate_model.py']
+        application='/opt/spark-apps/evaluate_model.py',
+        conn_id='spark_default',
+        name='evaluate_model',
+        application_args=[],
+        verbose=True
     )
 
     track_model = PythonOperator(

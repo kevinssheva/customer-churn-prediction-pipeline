@@ -68,15 +68,15 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
-    _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
+    _PIP_ADDITIONAL_REQUIREMENTS: scikit-learn apache-airflow-providers-apache-spark
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
   volumes:
-    - ${AIRFLOW_PROJ_DIR:-.}/dags:/opt/airflow/dags
-    - ${AIRFLOW_PROJ_DIR:-.}/logs:/opt/airflow/logs
-    - ${AIRFLOW_PROJ_DIR:-.}/config:/opt/airflow/config
-    - ${AIRFLOW_PROJ_DIR:-.}/plugins:/opt/airflow/plugins
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/config:/opt/airflow/config
+    - ./airflow/plugins:/opt/airflow/plugins
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -290,8 +290,8 @@ services:
       - "9090:8080"
       - "7077:7077"
     volumes:
-      - ${SPARK_PROJ_DIR:-.}/apps:/opt/spark-apps
-      - ${SPARK_PROJ_DIR:-.}/data:/opt/spark-data
+      - ./spark/apps:/opt/spark-apps
+      - ./spark/data:/opt/spark-data
     environment:
       - SPARK_LOCAL_IP=spark-master
       - SPARK_WORKLOAD=master
@@ -312,8 +312,8 @@ services:
       - SPARK_WORKLOAD=worker
       - SPARK_LOCAL_IP=spark-worker-a
     volumes:
-      - ${SPARK_PROJ_DIR:-.}/apps:/opt/spark-apps
-      - ${SPARK_PROJ_DIR:-.}/data:/opt/spark-data
+      - ./spark/apps:/opt/spark-apps
+      - ./spark/data:/opt/spark-data
 
   spark-worker-b:
     build: ./spark
@@ -331,8 +331,8 @@ services:
       - SPARK_WORKLOAD=worker
       - SPARK_LOCAL_IP=spark-worker-b
     volumes:
-      - ${SPARK_PROJ_DIR:-.}/apps:/opt/spark-apps
-      - ${SPARK_PROJ_DIR:-.}/data:/opt/spark-data
+      - ./spark/apps:/opt/spark-apps
+      - ./spark/data:/opt/spark-data
 
   minio:
     restart: always
