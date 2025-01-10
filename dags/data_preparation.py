@@ -6,12 +6,13 @@ from astro.files import File
 from astro.dataframes.pandas import DataFrame
 from airflow.operators.empty import EmptyOperator
 from airflow.providers.amazon.aws.operators.s3 import S3CreateBucketOperator
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from mlflow_provider.hooks.client import MLflowClientHook
 import os
 import pandas as pd
 
 # Constants used in the DAG
-FILE_PATH = "churn.csv"
+FILE_PATH = "WA_Fn-UseC_-Telco-Customer-Churn.csv"
 PROCESSED_TRAIN_DATA_PATH = "train_data.csv"
 
 # AWS S3 parameters
@@ -24,6 +25,9 @@ XCOM_BUCKET = "localxcom"
 MLFLOW_CONN_ID = "mlflow_default"
 EXPERIMENT_NAME = "customer_churn"
 MAX_RESULTS_MLFLOW_LIST_EXPERIMENTS = 100
+
+# Spark parameters
+SPARK_CONN_ID = "spark_default"
 
 # Data parameters
 NUMERIC_COLUMNS = ["tenure", "MonthlyCharges", "TotalCharges"]
@@ -136,68 +140,20 @@ def data_preparation():
             >> experiment_id
         )
 
-    @aql.dataframe()
-    def data_manipulation(data_file: str) -> DataFrame:
-        try:
-            df = pd.read_csv(f"include/{data_file}")
-        except FileNotFoundError:
-            raise ValueError(f"File {data_file} not found in the specified directory.")
-
-        df = df.drop(["customerID"], axis=1)
-        df["TotalCharges"] = pd.to_numeric(df.TotalCharges, errors="coerce")
-        df.drop(labels=df[df["tenure"] == 0].index, axis=0, inplace=True)
-        df["TotalCharges"].fillna(df["TotalCharges"].mean(), inplace=True)
-        df["SeniorCitizen"] = df["SeniorCitizen"].map({0: "No", 1: "Yes"})
-
-        return df
-
-    @aql.dataframe()
-    def data_preprocessing(
-        preprocessed_df: DataFrame,
-        experiment_id: str,
-    ):
-        """Scale features and log preprocessed data to MLFlow."""
-        from sklearn.model_selection import train_test_split
-        from sklearn.preprocessing import StandardScaler
-        from sklearn.preprocessing import LabelEncoder
-        import mlflow
-        import numpy as np
-
-        mlflow.sklearn.autolog()
-
-        categorical_columns = preprocessed_df.select_dtypes(include=["object"]).columns
-        preprocessed_df[categorical_columns] = preprocessed_df[
-            categorical_columns
-        ].apply(LabelEncoder().fit_transform)
-
-        scaler = StandardScaler()
-
-        # Start an MLFlow run
-        with mlflow.start_run(experiment_id=experiment_id, run_name="Scaler"):
-            numeric_data = preprocessed_df[NUMERIC_COLUMNS].values
-            preprocessed_df[NUMERIC_COLUMNS] = scaler.fit_transform(numeric_data)
-            mlflow.sklearn.log_model(scaler, artifact_path="scaler")
-            mlflow.log_metrics(
-                {"mean_feature_value": np.mean(preprocessed_df[NUMERIC_COLUMNS].values)}
-            )
-        return preprocessed_df
-
-    # Task execution flow
-    preprocessed_df = data_manipulation(data_file=FILE_PATH)
-
-    processed_df = data_preprocessing(
-        preprocessed_df=preprocessed_df,
-        experiment_id="{{ ti.xcom_pull(task_ids='prepare_mlflow_experiment.get_current_experiment_id') }}",
-    )
-
-    save_data_to_s3 = aql.export_file(
-        task_id="save_data_to_s3",
-        input_data=processed_df,
-        output_file=File(
-            path=os.path.join("s3://", DATA_BUCKET_NAME, PROCESSED_TRAIN_DATA_PATH),
-            conn_id=AWS_CONN_ID,
-        ),
-        if_exists="replace",
+    process_data = SparkSubmitOperator(
+        task_id='process_data',
+        application='/spark/apps/data-prep/data_preprocessing.py',
+        conn_id=SPARK_CONN_ID,
+        application_args=[
+            '--input_path', f"spark/data/{FILE_PATH}",
+            '--experiment_id', "{{ task_instance.xcom_pull(task_ids='prepare_mlflow_experiment.get_current_experiment_id') }}",
+            '--numeric_columns', ','.join(NUMERIC_COLUMNS),
+            '--output_path', os.path.join("s3://", DATA_BUCKET_NAME, PROCESSED_TRAIN_DATA_PATH)
+        ],
+        conf={
+            'spark.jars.packages': 'org.mlflow:mlflow-spark:2.19.0',
+            'spark.hadoop.fs.s3a.aws.credentials.provider': 'org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider'
+        }
     )
 
     # Task dependencies
@@ -205,9 +161,7 @@ def data_preparation():
         start
         >> create_buckets_if_not_exists
         >> prepare_mlflow_experiment()
-        >> preprocessed_df
-        >> processed_df
-        >> save_data_to_s3
+        >> process_data
         >> end
     )
 
