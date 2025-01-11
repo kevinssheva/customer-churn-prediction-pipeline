@@ -6,13 +6,21 @@ from pyspark.ml.feature import StandardScaler, StringIndexer, VectorAssembler
 from pyspark.ml import Pipeline
 import mlflow
 import mlflow.spark
-import sys, os
+import mlflow.data
+import sys, os, argparse
+
+from sqlalchemy.log import logging
 
 numeric_columns = ["tenure", "MonthlyCharges", "TotalCharges"]
 FILE_PATH = "/opt/spark-data/WA_Fn-UseC_-Telco-Customer-Churn.csv"
 
-combined_data = sys.argv[1]
-run_id = sys.argv[2]
+parser = argparse.ArgumentParser(description="A script with flags.")
+parser.add_argument("--run-id", type=str, default="")
+parser.add_argument("--combined-data", type=str, default="")
+args = parser.parse_args()
+
+run_id = args.run_id
+combined_data = args.combined_data
 
 def process_data() -> None:
     spark = SparkSession.builder \
@@ -73,6 +81,8 @@ def process_data() -> None:
         processed_df = model.transform(df)
 
         mlflow.spark.log_model(model, "preprocessing_pipeline")
+
+        logging.info(f"aws key: os.getenv('AWS_ACCESS_KEY_ID')")
 
         numeric_stats = processed_df.select([
             F.mean(F.col("scaled_numeric_features")).alias("mean_scaled_features"),

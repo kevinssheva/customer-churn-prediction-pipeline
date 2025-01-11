@@ -49,8 +49,8 @@ x-airflow-common:
   # In order to add custom dependencies or upgrade provider packages you can use your extended image.
   # Comment the image line, place your Dockerfile in the directory where you placed the docker-compose.yaml
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
-  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.4}
-  # build: .
+  #image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.4}
+  build: ./airflow
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -68,15 +68,20 @@ x-airflow-common:
     AIRFLOW__SCHEDULER__ENABLE_HEALTH_CHECK: 'true'
     # WARNING: Use _PIP_ADDITIONAL_REQUIREMENTS option ONLY for a quick checks
     # for other purpose (development, test and especially production usage) build/extend Airflow image.
-    _PIP_ADDITIONAL_REQUIREMENTS: scikit-learn apache-airflow-providers-apache-spark
+    #_PIP_ADDITIONAL_REQUIREMENTS: scikit-learn apache-airflow-providers-apache-spark
+
     # The following line can be used to set a custom config file, stored in the local config folder
     # If you want to use it, outcomment it and replace airflow.cfg with the name of your config file
     # AIRFLOW_CONFIG: '/opt/airflow/config/airflow.cfg'
+  env_file:
+    - .env
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
     - ./airflow/config:/opt/airflow/config
     - ./airflow/plugins:/opt/airflow/plugins
+    - ./spark/apps:/opt/spark-apps
+    - ./spark/data:/opt/spark-data
   user: "${AIRFLOW_UID:-50000}:0"
   depends_on:
     &airflow-common-depends-on
@@ -357,6 +362,7 @@ services:
       - .env
     entrypoint: >
       /bin/sh -c "
+      chmod +x /tmp/wait-for-it.sh &&
       /tmp/wait-for-it.sh minio:9000 &&
       /usr/bin/mc alias set minio http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} &&
       /usr/bin/mc mb minio/mlflow;
@@ -377,8 +383,8 @@ services:
       - "5000:5000"
     environment:
       - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
-      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
-      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    env_file:
+      - .env
     command: >
       bash -c "
       /init_mlflow_db.sh &&
