@@ -98,6 +98,12 @@ def train_model() -> None:
         dataset = mlflow.data.from_spark(processed_df)
         mlflow.log_input(dataset, context="training")
 
+        output_path = "/tmp/processed_dataset.csv"
+        processed_df.toPandas().to_csv(output_path, index=False)
+
+        mlflow.log_artifact(output_path, artifact_path="data/processed_dataset")
+        os.remove(output_path)
+
         blor = LogisticRegression(maxIter=2)
         model = blor.fit(processed_df)
 

@@ -7,9 +7,8 @@ from mlflow import MlflowClient
 import mlflow
 import logging
 
-# Spark parameters
 SPARK_CONN_ID = "spark_default"
-
+TRAIN_MODEL_EXPERIMENT_NAME = "TRAIN_MODEL"
 MLFLOW_URI = "http://mlflow-server:5000"
 
 @dag(
@@ -47,7 +46,7 @@ def train_model():
         logging.info(f"experiment_id: {experiment_id}")
         return run.info.run_id
 
-    experiment_id = create_or_get_experiment(experiment_name="DATA_PREPROCESS")
+    experiment_id = create_or_get_experiment(experiment_name=TRAIN_MODEL_EXPERIMENT_NAME)
 
     run_id = create_run(experiment_id)
 
