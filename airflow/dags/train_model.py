@@ -17,7 +17,7 @@ MLFLOW_URI = "http://mlflow-server:5000"
     start_date=datetime(2023, 1, 1),
     catchup=False,
 )
-def data_preparation():
+def train_model():
     mlflow.set_tracking_uri(MLFLOW_URI)
 
     @task
@@ -52,12 +52,12 @@ def data_preparation():
     run_id = create_run(experiment_id)
 
     SparkSubmitOperator(
-        task_id='process_data',
-        application='/opt/spark-apps/data-prep/data_preprocessing.py',
+        task_id='train_original_data',
+        application='/opt/spark-apps/train_model_original_data.py',
         application_args=[
             '--run-id', run_id,
         ],
     )
 
 
-data_preparation()
+train_model()
