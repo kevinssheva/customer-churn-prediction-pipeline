@@ -297,6 +297,8 @@ services:
     volumes:
       - ./spark/apps:/opt/spark-apps
       - ./spark/data:/opt/spark-data
+    env_file:
+      - .env
     environment:
       - SPARK_LOCAL_IP=spark-master
       - SPARK_WORKLOAD=master
@@ -316,6 +318,8 @@ services:
       - SPARK_EXECUTOR_MEMORY=1G
       - SPARK_WORKLOAD=worker
       - SPARK_LOCAL_IP=spark-worker-a
+    env_file:
+      - .env
     volumes:
       - ./spark/apps:/opt/spark-apps
       - ./spark/data:/opt/spark-data
@@ -335,6 +339,8 @@ services:
       - SPARK_EXECUTOR_MEMORY=1G
       - SPARK_WORKLOAD=worker
       - SPARK_LOCAL_IP=spark-worker-b
+    env_file:
+      - .env
     volumes:
       - ./spark/apps:/opt/spark-apps
       - ./spark/data:/opt/spark-data
@@ -362,14 +368,13 @@ services:
       - .env
     entrypoint: >
       /bin/sh -c "
-      chmod +x /tmp/wait-for-it.sh &&
-      /tmp/wait-for-it.sh minio:9000 &&
+      chmod +x /tmp/mc/wait-for-it.sh &&
+      /tmp/mc/wait-for-it.sh minio:9000 &&
       /usr/bin/mc alias set minio http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} &&
       /usr/bin/mc mb minio/mlflow;
-      exit 0;
       "
     volumes:
-      - ./wait-for-it.sh:/tmp/wait-for-it.sh
+      - ./mc:/tmp/mc
 
   mlflow-server:
     restart: always
@@ -381,8 +386,6 @@ services:
       - postgres
     ports:
       - "5000:5000"
-    environment:
-      - MLFLOW_S3_ENDPOINT_URL=http://minio:9000
     env_file:
       - .env
     command: >

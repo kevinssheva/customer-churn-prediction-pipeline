@@ -1,12 +1,16 @@
 from airflow.decorators import dag, task
+import os
 from mlflow.entities import Experiment, Run
 from pendulum import datetime
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 from mlflow import MlflowClient
+import mlflow
 import logging
 
 # Spark parameters
 SPARK_CONN_ID = "spark_default"
+
+MLFLOW_URI = "http://mlflow-server:5000"
 
 @dag(
     schedule=None,
@@ -14,13 +18,14 @@ SPARK_CONN_ID = "spark_default"
     catchup=False,
 )
 def data_preparation():
+    mlflow.set_tracking_uri(MLFLOW_URI)
+
     @task
     def create_or_get_experiment(experiment_name) -> str:
         """Create a new MLFlow experiment with a specified name.
         Save artifacts to the specified S3 bucket."""
 
         mlflow_client = MlflowClient()
-
         experiment = mlflow_client.get_experiment_by_name(experiment_name)
 
         if experiment is None:
@@ -39,11 +44,11 @@ def data_preparation():
         mlflow_client = MlflowClient()
         run = mlflow_client.create_run(experiment_id)
 
+        logging.info(f"experiment_id: {experiment_id}")
         return run.info.run_id
 
     experiment_id = create_or_get_experiment(experiment_name="DATA_PREPROCESS")
 
-    logging.info(f"experiment_id: {experiment_id}")
     run_id = create_run(experiment_id)
 
     SparkSubmitOperator(
