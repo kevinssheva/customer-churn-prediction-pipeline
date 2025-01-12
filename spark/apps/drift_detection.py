@@ -6,10 +6,10 @@ import argparse, os, boto3, math
 from urllib.parse import urlparse
 from pathlib import Path
 
-PSI_THRESHOLD = 0.2
+PSI_THRESHOLD = 0
 NUMERIC_COLUMNS = ["tenure", "MonthlyCharges", "TotalCharges"]
 FEATURE_COLUMNS = ["gender","SeniorCitizen","Partner","Dependents","tenure","PhoneService","MultipleLines","InternetService","OnlineSecurity","OnlineBackup","DeviceProtection","TechSupport","StreamingTV","StreamingMovies","Contract","PaperlessBilling","PaymentMethod","MonthlyCharges","TotalCharges"]
-TRAIN_DATA_URI = "s3://minio/data/train-data.csv"
+TRAIN_DATA_URI = "s3://data/train-data.csv"
 
 parser = argparse.ArgumentParser(description="A script with flags.")
 parser.add_argument("--run-id", type=str, default="")

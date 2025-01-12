@@ -82,7 +82,8 @@ x-airflow-common:
     - ./airflow/plugins:/opt/airflow/plugins
     - ./spark/apps:/opt/spark-apps
     - ./spark/data:/opt/spark-data
-  user: "${AIRFLOW_UID:-50000}:0"
+  #user: "${AIRFLOW_UID:-50000}:0"
+  user: "0:0"
   depends_on:
     &airflow-common-depends-on
     redis:
@@ -312,7 +313,7 @@ services:
       - spark-master
     environment:
       - SPARK_MASTER=spark://spark-master:7077
-      - SPARK_WORKER_CORES=1
+      - spark_worker_cores=1
       - SPARK_WORKER_MEMORY=1G
       - SPARK_DRIVER_MEMORY=1G
       - SPARK_EXECUTOR_MEMORY=1G
@@ -371,8 +372,8 @@ services:
       chmod +x /tmp/mc/wait-for-it.sh &&
       /tmp/mc/wait-for-it.sh minio:9000 &&
       /usr/bin/mc alias set minio http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} &&
-      /usr/bin/mc mb minio/mlflow;
-      /usr/bin/mc mb minio/data;
+      /usr/bin/mc mb minio/mlflow &&
+      /usr/bin/mc mb minio/data &&
       /usr/bin/mc mb minio/sample;
       "
     volumes:

@@ -18,3 +18,5 @@ RUN pip install apache-airflow==${AIRFLOW_VERSION} \
 COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
+
+USER root

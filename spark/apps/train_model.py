@@ -14,7 +14,7 @@ from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pathlib import Path
 
 numeric_columns = ["tenure", "MonthlyCharges", "TotalCharges"]
-TRAIN_DATA_URI = "s3://minio/data/train-data.csv"
+TRAIN_DATA_URI = "s3://data/train-data.csv"
 
 parser = argparse.ArgumentParser(description="A script with flags.")
 parser.add_argument("--run-id", type=str, default="")

@@ -3,7 +3,6 @@ import argparse, os, boto3
 from urllib.parse import urlparse
 from pathlib import Path
 
-ALL_DATA_URI = "s3://minio/data/all_data.csv"
 ALL_COLUMNS = ["gender","SeniorCitizen","Partner","Dependents","tenure","PhoneService","MultipleLines","InternetService","OnlineSecurity","OnlineBackup","DeviceProtection","TechSupport","StreamingTV","StreamingMovies","Contract","PaperlessBilling","PaymentMethod","MonthlyCharges","TotalCharges", "Churn"]
 
 parser = argparse.ArgumentParser(description="A script with flags.")
@@ -52,9 +51,21 @@ def upload_data(df: DataFrame, run_id: str, file_uri: str):
         aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         endpoint_url="http://minio:9000"
     )
-    local_path = os.path.join(f'/opt/spark-data/{run_id}', "combined_data.csv")
+    output_dir = os.path.join(f'/opt/spark-data/{run_id}', "combined_data")
 
-    df.write.csv(local_path, header=True, mode="overwrite")
+    df.coalesce(1).write.option("header", "true").csv(output_dir)
+
+    part_file = None
+    for filename in os.listdir(output_dir):
+        if filename.startswith("part-") and filename.endswith(".csv"):
+            part_file = os.path.join(output_dir, filename)
+            break
+
+    if part_file:
+        local_path = os.path.join(f'/opt/spark-data/{run_id}', "combined_data.csv")
+        os.rename(part_file, local_path)
+    else:
+        raise RuntimeError("Partfile not found")
 
     parsed = urlparse(file_uri)
     bucket_name = parsed.netloc

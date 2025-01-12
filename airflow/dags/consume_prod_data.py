@@ -15,7 +15,7 @@ TRAIN_MODEL_EXPERIMENT_NAME = "TRAIN_MODEL"
 DATA_DRIFT_EXPERIMENT_NAME = "DATA_DRIFT_DETECTION"
 
 @dag(
-    schedule="@daily",
+    schedule="@monthly",
     start_date=datetime(2023, 1, 1),
     catchup=False,
 )

@@ -69,3 +69,5 @@ COPY start-spark.sh /
 RUN chmod +x /start-spark.sh
 
 CMD ["/bin/bash", "/start-spark.sh"]
+
+
