@@ -9,15 +9,14 @@ from pathlib import Path
 PSI_THRESHOLD = 0.2
 NUMERIC_COLUMNS = ["tenure", "MonthlyCharges", "TotalCharges"]
 FEATURE_COLUMNS = ["gender","SeniorCitizen","Partner","Dependents","tenure","PhoneService","MultipleLines","InternetService","OnlineSecurity","OnlineBackup","DeviceProtection","TechSupport","StreamingTV","StreamingMovies","Contract","PaperlessBilling","PaymentMethod","MonthlyCharges","TotalCharges"]
+TRAIN_DATA_URI = "s3://minio/data/train-data.csv"
 
 parser = argparse.ArgumentParser(description="A script with flags.")
 parser.add_argument("--run-id", type=str, default="")
-parser.add_argument("--baseline-uri", type=str, default="")
 parser.add_argument("--prod-uri", type=str, default="")
 args = parser.parse_args()
 
 run_id = args.run_id
-baseline_uri = args.baseline_uri
 prod_uri = args.prod_uri
 
 def calculate_psi(spark: SparkSession,base_df: DataFrame, prod_df, column):
@@ -68,7 +67,7 @@ def detect_drift():
         .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.5.4") \
         .getOrCreate()
 
-    baseline_df = preprocess_data(spark, run_id, baseline_uri)
+    baseline_df = preprocess_data(spark, run_id, TRAIN_DATA_URI)
     production_df = preprocess_data(spark, run_id, prod_uri)
 
     psi_scores = {}

@@ -8,11 +8,15 @@ ALL_COLUMNS = ["gender","SeniorCitizen","Partner","Dependents","tenure","PhoneSe
 
 parser = argparse.ArgumentParser(description="A script with flags.")
 parser.add_argument("--run-id", type=str, default="")
-parser.add_argument("--prod-uri", type=str, default="")
+parser.add_argument("--data-a-uri", type=str, default="")
+parser.add_argument("--data-b-uri", type=str, default="")
+parser.add_argument("--dest-uri", type=str, default="")
 args = parser.parse_args()
 
 run_id = args.run_id
-prod_uri = args.prod_uri
+data_a_uri = args.data_a_uri
+data_b_uri = args.data_b_uri
+dest_uri = args.dest_uri
 
 def load_df(spark: SparkSession, run_id: str, file_uri: str):
     s3 = boto3.client(
@@ -63,11 +67,11 @@ def combine_data():
         .config("spark.jars.packages", "org.apache.hadoop:hadoop-aws:3.5.4") \
         .getOrCreate()
 
-    baseline_df = load_df(spark, run_id, ALL_DATA_URI)
-    production_df = load_df(spark, run_id, prod_uri)
+    df_a = load_df(spark, run_id, data_a_uri)
+    df_b = load_df(spark, run_id, data_b_uri)
 
-    combined_df = baseline_df.union(production_df)
-    upload_data(combined_df, run_id, ALL_DATA_URI)
+    combined_df = df_a.union(df_b)
+    upload_data(combined_df, run_id, dest_uri)
 
     directory_path = Path(f'/opt/spark-data/{run_id}')
 

@@ -14,7 +14,7 @@ from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 from pathlib import Path
 
 numeric_columns = ["tenure", "MonthlyCharges", "TotalCharges"]
-FILE_URI = "s3://minio/data/all_data.csv"
+TRAIN_DATA_URI = "s3://minio/data/train-data.csv"
 
 parser = argparse.ArgumentParser(description="A script with flags.")
 parser.add_argument("--run-id", type=str, default="")
@@ -33,7 +33,7 @@ def train_model() -> None:
         aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
         endpoint_url="http://minio:9000"
     )
-    parsed = urlparse(FILE_URI)
+    parsed = urlparse(TRAIN_DATA_URI)
     bucket_name = parsed.netloc
     object_key = parsed.path.lstrip("/")
     local_path = os.path.join(f'/opt/spark-data/{run_id}/data-drift', object_key)
@@ -103,12 +103,6 @@ def train_model() -> None:
 
         dataset = mlflow.data.from_spark(processed_df)
         mlflow.log_input(dataset, context="training")
-
-        output_path = "/tmp/processed_dataset.csv"
-        processed_df.toPandas().to_csv(output_path, index=False)
-
-        mlflow.log_artifact(output_path, artifact_path="data/processed_dataset")
-        os.remove(output_path)
 
         blor = LogisticRegression(maxIter=2)
         model = blor.fit(processed_df)
