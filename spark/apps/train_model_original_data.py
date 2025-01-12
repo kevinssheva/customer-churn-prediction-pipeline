@@ -1,4 +1,3 @@
-from pandas.core.series import CombinedDatetimelikeProperties
 from pyspark.sql import SparkSession
 from pyspark.sql import functions as F
 from pyspark.sql.types import DoubleType
@@ -13,7 +12,7 @@ import os, argparse
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
 
 numeric_columns = ["tenure", "MonthlyCharges", "TotalCharges"]
-FILE_PATH = "/opt/spark-data/WA_Fn-UseC_-Telco-Customer-Churn.csv"
+FILE_PATH = "/opt/spark-data/train-original-split.csv"
 
 parser = argparse.ArgumentParser(description="A script with flags.")
 parser.add_argument("--run-id", type=str, default="")
@@ -37,7 +36,7 @@ def train_model() -> None:
     if combined_data == "":
         df = spark.read.csv(FILE_PATH, header=True, inferSchema=True)
     else:
-        df = spark.read.parquet(f"s3://mlflow/{combined_data}", header=True, inferSchema=True)
+        df = spark.read.csv(f"s3://mlflow/{combined_data}", header=True, inferSchema=True)
 
     df = df.drop("customerID")
     df = df.withColumn("TotalCharges", F.col("TotalCharges").cast(DoubleType()))

@@ -2,9 +2,12 @@
 FROM openjdk:11.0.11-jre-slim-buster as builder
 
 # Add Dependencies for PySpark
-RUN apt-get update && apt-get install -y curl vim wget software-properties-common ssh net-tools ca-certificates python3 python3-pip python3-numpy python3-matplotlib python3-scipy python3-pandas python3-simpy dos2unix
-
-RUN update-alternatives --install "/usr/bin/python" "python" "$(which python3)" 1
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    wget build-essential libssl-dev zlib1g-dev \
+    libncurses5-dev libncursesw5-dev libreadline-dev \
+    libsqlite3-dev libgdbm-dev libdb5.3-dev libbz2-dev libffi-dev\
+    libexpat1-dev liblzma-dev tk-dev
 
 # Fix the value of PYTHONHASHSEED
 # Note: this is needed when you use Python 3.3 or greater
@@ -19,6 +22,24 @@ RUN wget -O apache-spark.tgz "https://archive.apache.org/dist/spark/spark-${SPAR
     && tar -xf apache-spark.tgz -C /opt/spark --strip-components=1 \
     && rm apache-spark.tgz
 
+RUN apt-get install -y --no-install-recommends \
+    libffi-dev && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN wget https://www.python.org/ftp/python/3.12.0/Python-3.12.0.tgz && \
+    tar xvf Python-3.12.0.tgz && \
+    cd Python-3.12.0 && \
+    ./configure --enable-optimizations && \
+    make -j$(nproc) && \
+    make altinstall && \
+    cd .. && rm -rf Python-3.12.0 Python-3.12.0.tgz
+
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/local/bin/python3.12 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/local/bin/pip3.12 1
+
+RUN update-alternatives --install "/usr/bin/python" "python" "$(which python3)" 1
+
+RUN pip install numpy matplotlib scipy pandas simpy
 
 # Apache spark environment
 FROM builder as apache-spark
@@ -45,7 +66,6 @@ RUN mkdir -p $SPARK_LOG_DIR && \
 
 COPY start-spark.sh /
 
-RUN dos2unix /start-spark.sh
 RUN chmod +x /start-spark.sh
 
 CMD ["/bin/bash", "/start-spark.sh"]

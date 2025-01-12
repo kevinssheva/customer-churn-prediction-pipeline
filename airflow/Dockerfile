@@ -3,10 +3,10 @@ FROM apache/airflow:2.10.4
 USER root
 
 RUN apt-get update \
-    && apt-get install --no-install-recommends -y openjdk-17-jre vim \
+    && apt-get install --no-install-recommends -y openjdk-17-jre vim\
     && apt-get clean;
 
-ENV JAVA_HOME /usr/lib/jvm/java-17-openjdk-amd64/
+ENV JAVA_HOME="/usr/lib/jvm/java-17-openjdk-amd64/"
 RUN export JAVA_HOME
 
 USER airflow
