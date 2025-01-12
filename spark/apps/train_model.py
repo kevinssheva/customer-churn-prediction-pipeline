@@ -8,35 +8,42 @@ import mlflow
 import mlflow.spark
 import mlflow.data
 from mlflow.models import infer_signature
-import os, argparse
+import os, argparse, boto3
+from urllib.parse import urlparse
 from pyspark.ml.evaluation import MulticlassClassificationEvaluator
+from pathlib import Path
 
 numeric_columns = ["tenure", "MonthlyCharges", "TotalCharges"]
-FILE_PATH = "/opt/spark-data/train-original-split.csv"
+FILE_URI = "s3://minio/data/all_data.csv"
 
 parser = argparse.ArgumentParser(description="A script with flags.")
 parser.add_argument("--run-id", type=str, default="")
-parser.add_argument("--combined-data", type=str, default="")
 args = parser.parse_args()
 
 run_id = args.run_id
-combined_data = args.combined_data
 
 def train_model() -> None:
     spark = SparkSession.builder \
         .appName("TrainModelOriginalData") \
-        .config("spark.jars.packages", "org.mlflow:mlflow-spark:2.19.0") \
-        .config('spark.hadoop.fs.s3a.endpoint', 'http://localhost:9000') \
-        .config('spark.hadoop.fs.s3a.access.key', os.getenv('AWS_ACCESS_KEY_ID')) \
-        .config('spark.hadoop.fs.s3a.secret.key', os.getenv('AWS_SECRET_ACCESS_KEY')) \
-        .config('spark.hadoop.fs.s3a.path.style.access', 'true') \
-        .config('spark.hadoop.fs.s3a.impl', 'org.apache.hadoop.fs.s3a.S3AFileSystem') \
         .getOrCreate()
 
-    if combined_data == "":
-        df = spark.read.csv(FILE_PATH, header=True, inferSchema=True)
-    else:
-        df = spark.read.csv(f"s3://mlflow/{combined_data}", header=True, inferSchema=True)
+    s3 = boto3.client(
+        's3',
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        endpoint_url="http://minio:9000"
+    )
+    parsed = urlparse(FILE_URI)
+    bucket_name = parsed.netloc
+    object_key = parsed.path.lstrip("/")
+    local_path = os.path.join(f'/opt/spark-data/{run_id}/data-drift', object_key)
+
+    Path(os.path.dirname(local_path)).mkdir(parents=True, exist_ok=True)
+
+    with open(local_path, 'wb') as f:
+        s3.download_fileobj(bucket_name, object_key, f)
+
+    df = spark.read.csv(local_path, header=True, inferSchema=True)
 
     df = df.drop("customerID")
     df = df.withColumn("TotalCharges", F.col("TotalCharges").cast(DoubleType()))
@@ -129,6 +136,16 @@ def train_model() -> None:
 
         for metric, value in metrics.items():
             mlflow.log_metric(metric, value)
+
+    directory_path = Path(f'/opt/spark-data/{run_id}')
+
+    for root, dirs, files in os.walk(directory_path, topdown=False):
+        for file in files:
+            os.unlink(Path(root) / file)
+        for dir in dirs:
+            os.rmdir(Path(root) / dir)
+
+    directory_path.rmdir()
 
 
 if __name__ == "__main__":

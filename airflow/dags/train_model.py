@@ -52,7 +52,7 @@ def train_model():
 
     SparkSubmitOperator(
         task_id='train_original_data',
-        application='/opt/spark-apps/train_model_original_data.py',
+        application='/opt/spark-apps/train_model.py',
         application_args=[
             '--run-id', run_id,
         ],

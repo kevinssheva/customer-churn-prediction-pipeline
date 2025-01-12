@@ -1,5 +1,5 @@
 from airflow.decorators import dag, task
-import os
+from airflow.operators.empty import EmptyOperator
 from mlflow.entities import Experiment, Run
 from pendulum import datetime
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
@@ -82,13 +82,26 @@ def consume_prod_data():
         logging.info(f"uri {uri}")
         return uri
 
+    @task.branch()
+    def decide_retrain(data_drift_run_id: str):
+        client = MlflowClient()
+        run = client.get_run(data_drift_run_id)
+
+        if run.data.metrics["drift_detected"] is None:
+            raise RuntimeError("drift_detected metric not found")
+
+        if run.data.metrics["drift_detected"] == 0:
+            return "end_run"
+        else:
+            return "retrain_data"
+
     experiment_id = create_or_get_experiment(experiment_name=DATA_DRIFT_EXPERIMENT_NAME)
     run_id = create_run(experiment_id)
 
     train_run_id = get_last_train_experiment_run(TRAIN_MODEL_EXPERIMENT_NAME)
     train_data_uri = get_last_train_experiment_data(train_run_id=train_run_id)
 
-    SparkSubmitOperator(
+    detect_drift_task = SparkSubmitOperator(
         task_id="detect_drift",
         application="/opt/spark-apps/drift_detection.py",
         application_args=[
@@ -98,5 +111,32 @@ def consume_prod_data():
         ],
         conn_id=SPARK_CONN_ID,
     )
+
+    decide_retrain_task = decide_retrain(run_id)
+
+    end_run = EmptyOperator(task_id="end_run")
+
+    combine_data_task = SparkSubmitOperator(
+        task_id="combine_data",
+        application="/opt/spark-apps/combine_data.py",
+        application_args=[
+            "--run-id", run_id,
+            "--prod-uri", "s3://data/prod-split.csv",
+        ],
+        conn_id=SPARK_CONN_ID,
+    )
+
+    retrain_data_task = SparkSubmitOperator(
+        task_id='retrain_data',
+        application='/opt/spark-apps/train_model.py',
+        application_args=[
+            '--run-id', run_id,
+        ],
+    )
+
+    detect_drift_task >> combine_data_task >> decide_retrain_task
+
+    decide_retrain_task >> end_run
+    decide_retrain_task >> retrain_data_task >> end_run
 
 consume_prod_data()

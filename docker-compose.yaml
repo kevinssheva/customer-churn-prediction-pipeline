@@ -372,6 +372,7 @@ services:
       /tmp/mc/wait-for-it.sh minio:9000 &&
       /usr/bin/mc alias set minio http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} &&
       /usr/bin/mc mb minio/mlflow;
+      /usr/bin/mc mb minio/data;
       "
     volumes:
       - ./mc:/tmp/mc
